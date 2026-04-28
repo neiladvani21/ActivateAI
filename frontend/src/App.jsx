@@ -46,9 +46,14 @@ function App() {
     setLoading(true);
 
     try {
+      const local_time = new Date().toLocaleTimeString('en-US', {
+        hour: '2-digit', minute: '2-digit', hour12: true, weekday: 'short'
+      });
+
       const response = await axios.post(`${API_BASE_URL}/chat`, {
         message: trimmed,
         session_id: sessionId,
+        local_time,
       });
 
       const agentMessage = {

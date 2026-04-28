@@ -41,6 +41,7 @@ _thread_pool = ThreadPoolExecutor(max_workers=4)
 class ChatRequest(BaseModel):
     message: str
     session_id: Optional[str] = None
+    local_time: Optional[str] = None
 
 
 class POIData(BaseModel):
@@ -94,8 +95,8 @@ def _extract_map_data(intermediate_steps: list) -> tuple[list, Optional[int], Op
     return pois, geofence_radius_m, map_center
 
 
-def _run_agent(session_id: str, message: str) -> dict:
-    return run_with_history(session_id, message)
+def _run_agent(session_id: str, message: str, local_time: str) -> dict:
+    return run_with_history(session_id, message, local_time)
 
 
 @app.get("/health")
@@ -107,10 +108,12 @@ def health():
 async def chat(request: ChatRequest):
     session_id = request.session_id or str(uuid.uuid4())
 
+    local_time = request.local_time or "unknown"
+
     loop = asyncio.get_event_loop()
     try:
         result = await asyncio.wait_for(
-            loop.run_in_executor(_thread_pool, _run_agent, session_id, request.message),
+            loop.run_in_executor(_thread_pool, _run_agent, session_id, request.message, local_time),
             timeout=AGENT_TIMEOUT,
         )
     except asyncio.TimeoutError:
