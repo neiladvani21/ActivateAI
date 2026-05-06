@@ -111,21 +111,68 @@ Structured Campaign Output
 ### Why This Fixes the Banner Problem
 The Orchestrator sees "generate a banner" → checks if Research Agent already ran this session → if yes, routes directly to Creative Agent with saved context. No re-running tools.
 
-### Implementation Plan
-- Use **LangGraph** for agent coordination (better than raw LangChain for multi-agent)
-- Each agent is a LangGraph node with its own tools and prompt
-- Orchestrator is the router node that decides which agents to invoke
-- Shared state object passed between agents carries: location, weather, POIs, offer copy, geofence
+### Framework Decision — To Be Made at Phase 2 Start
+
+Do not lock in a framework now. Evaluate these three options when Phase 2 begins based on what the project needs at that point:
+
+| Framework | Strength | Weakness | MCP Support |
+|---|---|---|---|
+| **LangGraph** | Fine-grained control, incremental from current LangChain code | Verbose, steep learning curve | Plugin (not native) |
+| **CrewAI** | Simplest multi-agent API, role-based agents, easy to read | Less control, no native MCP yet | No |
+| **Google ADK** | Native MCP support, clean parallel/sequential flows, best for Anthropic sandbox technique | Full rewrite, pushes toward Google/Gemini ecosystem | Native |
+
+Decision criteria: if MCP code execution (Phase 4 cost reduction) is high priority → lean Google ADK. If staying in current Python/LangChain ecosystem matters → LangGraph. If speed of implementation matters most → CrewAI.
+
+### Agent Persona Files
+
+Each agent has two parts:
+- A **`.md` persona file** — the agent's "brain". Written in plain English: role, goal, reasoning steps, rules, output format. Non-developers can read and edit this without touching code. All the intelligence lives here.
+- A **thin `.py` file** — just loads the `.md` and wires it to tools and a model. No business logic here.
+
+This is the pattern used in production Google ADK projects — personas in markdown, code just binds them. Adding a new agent = write one new `.md` file + one thin `.py` file.
+
+```
+agent/
+  personas/
+    orchestrator.md     ← intent detection rules, routing logic, what to delegate
+    researcher.md       ← how to find POIs, what to prioritize, competitor logic
+    strategist.md       ← geofence sizing rules, channel selection, timing windows
+    copywriter.md       ← copy rules, 3 variant angles, character limits, tone
+    creative.md         ← banner generation instructions, prompt structure
+    analyst.md          ← (Phase 5) campaign history, performance pattern reading
+  agents/
+    researcher.py       ← loads researcher.md + binds tools (search_pois, get_weather) + model
+    strategist.py       ← loads strategist.md + binds tools (suggest_geofence) + model
+    copywriter.py       ← loads copywriter.md + no tools (pure reasoning) + model
+    creative.py         ← loads creative.md + binds image generation tool + model
+  graph.py              ← imports all agents, wires them into the execution flow
+  main.py               ← just calls graph.py, no agent logic lives here
+```
+
+Each `.md` persona file will contain:
+- **Role** — what this agent is (e.g. "Senior Marketing Copywriter")
+- **Goal** — what it is trying to achieve
+- **Reasoning steps** — how it should think through the problem (like a playbook)
+- **Tools** — which tools it can use and when
+- **Output format** — exact structure of what it should return
+- **Rules** — constraints and guardrails (e.g. "copy must be under 160 characters")
+
+The `.py` file for each agent is intentionally thin:
+```python
+persona = Path("personas/researcher.md").read_text()
+researcher = Agent(system_prompt=persona, tools=[search_pois, get_weather], model=groq_8b)
+```
 
 **Files to create:**
-- `agent/orchestrator.py` — routing logic
-- `agent/agents/research.py` — POI + weather tools
-- `agent/agents/strategy.py` — geofence + channel logic
-- `agent/agents/creative.py` — copy generation + image
-- `agent/graph.py` — LangGraph workflow definition
+- `agent/personas/orchestrator.md` + `agents/orchestrator.py`
+- `agent/personas/researcher.md` + `agents/researcher.py`
+- `agent/personas/strategist.md` + `agents/strategist.py`
+- `agent/personas/copywriter.md` + `agents/copywriter.py`
+- `agent/personas/creative.md` + `agents/creative.py`
+- `agent/graph.py` — wires all agents into the execution flow
 
 **Effort:** 1-2 weeks  
-**Outcome:** Clean agent separation, follow-ups work correctly, easy to add new agents
+**Outcome:** Clean separation of intelligence (markdown) from code (Python). Easy to read, easy to modify, easy to extend. Adding a new capability = write a new `.md` persona.
 
 ---
 
