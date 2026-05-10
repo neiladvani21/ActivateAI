@@ -103,9 +103,30 @@ function App() {
 
   const suggestedPrompts = useMemo(
     () => [
-      'Check New York weather and suggest a marketing campaign for nearby grocery stores',
-      'Find coffee shops near Jersey City NJ and suggest a cold weather activation',
-      'Find gyms near Austin TX and suggest a morning workout activation',
+      {
+        icon: '☕',
+        title: 'Coffee Campaign',
+        description: 'Cold weather activation near Jersey City',
+        prompt: 'Find coffee shops near Jersey City NJ and suggest a cold weather activation',
+      },
+      {
+        icon: '🏙',
+        title: 'Grocery Push',
+        description: 'Weather-based campaign in New York',
+        prompt: 'Check New York weather and suggest a marketing campaign for nearby grocery stores',
+      },
+      {
+        icon: '💪',
+        title: 'Gym Activation',
+        description: 'Morning workout push near Austin TX',
+        prompt: 'Find gyms near Austin TX and suggest a morning workout activation',
+      },
+      {
+        icon: '🍔',
+        title: 'Fast Food Drive',
+        description: 'Lunch hour campaign near Chicago',
+        prompt: 'Find fast food restaurants near Chicago IL and suggest a lunch hour activation campaign',
+      },
     ],
     []
   );
@@ -183,42 +204,70 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100">
+    <div className="min-h-screen text-slate-100" style={{background: 'linear-gradient(135deg, #0a0a0f 0%, #0d0d1a 50%, #0a0a0f 100%)'}}>
       <div className="mx-auto flex h-screen w-full max-w-5xl flex-col px-4 py-4 sm:px-6 sm:py-6">
-        <header className="mb-4 flex items-center justify-between rounded-xl border border-slate-700 bg-slate-800/80 p-4 shadow-lg shadow-slate-950/30 sm:mb-6 sm:p-5">
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight text-white sm:text-2xl">
-              Moment Trigger Assistant
-            </h1>
-            <p className="mt-1 text-sm text-slate-300 sm:text-base">
-              Location-Based Marketing Activation Platform
-            </p>
+        <header className="mb-4 flex items-center justify-between rounded-2xl p-4 sm:mb-5 sm:p-5" style={{background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(139,92,246,0.25)', boxShadow: '0 0 30px rgba(139,92,246,0.08)'}}>
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl text-xl shadow-lg" style={{background: 'linear-gradient(135deg, #7c3aed, #2563eb)', boxShadow: '0 0 20px rgba(124,58,237,0.5)'}}>
+              ⚡
+            </div>
+            <div>
+              <h1 className="text-xl font-black tracking-tight sm:text-2xl" style={{background: 'linear-gradient(90deg, #a78bfa, #60a5fa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent'}}>
+                ActivateAI
+              </h1>
+              <p className="mt-0.5 text-xs font-medium sm:text-sm" style={{color: 'rgba(148,163,184,0.7)'}}>
+                AI-Powered Marketing Activation Platform
+              </p>
+            </div>
           </div>
           <button
             type="button"
             onClick={startNewChat}
             disabled={loading}
-            className="rounded-lg border border-slate-600 bg-slate-700 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:bg-slate-600 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-xl px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
+            style={{background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.35)', color: '#c4b5fd'}}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(139,92,246,0.25)'; e.currentTarget.style.borderColor = 'rgba(139,92,246,0.6)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(139,92,246,0.15)'; e.currentTarget.style.borderColor = 'rgba(139,92,246,0.35)'; }}
           >
             New Chat
           </button>
         </header>
 
-        <main className="flex min-h-0 flex-1 flex-col rounded-xl border border-slate-700 bg-slate-800/60 shadow-lg shadow-slate-950/30">
+        <main className="flex min-h-0 flex-1 flex-col rounded-2xl" style={{background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(139,92,246,0.15)'}}>
           <section className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-5">
             {messages.length === 0 && (
-              <div className="rounded-lg border border-slate-700 bg-slate-900/60 p-4">
-                <p className="mb-3 text-sm font-medium text-slate-300">Suggested prompts</p>
-                <div className="space-y-2">
-                  {suggestedPrompts.map((prompt) => (
+              <div className="flex flex-col items-center justify-center h-full py-8 px-2">
+                <div className="relative mb-2 flex h-16 w-16 items-center justify-center rounded-2xl text-3xl" style={{background: 'linear-gradient(135deg, #7c3aed, #2563eb)', boxShadow: '0 0 40px rgba(124,58,237,0.6), 0 0 80px rgba(124,58,237,0.2)'}}>
+                  ⚡
+                </div>
+                <h2 className="mt-4 text-2xl font-black text-white tracking-tight">Welcome to ActivateAI</h2>
+                <p className="mt-2 text-sm text-center max-w-sm" style={{color: 'rgba(148,163,184,0.8)'}}>
+                  Describe a location and brand — get a ready-to-launch marketing activation in seconds.
+                </p>
+
+                <p className="mt-8 mb-4 text-xs font-bold uppercase tracking-widest" style={{color: 'rgba(139,92,246,0.7)'}}>
+                  Try a prompt
+                </p>
+
+                <div className="grid grid-cols-1 gap-3 w-full max-w-2xl sm:grid-cols-2">
+                  {suggestedPrompts.map((item) => (
                     <button
-                      key={prompt}
+                      key={item.prompt}
                       type="button"
-                      onClick={() => sendMessage(prompt)}
-                      className="w-full rounded-md border border-slate-600 bg-slate-800 px-3 py-2 text-left text-sm text-slate-200 transition hover:border-slate-500 hover:bg-slate-700"
+                      onClick={() => sendMessage(item.prompt)}
                       disabled={loading}
+                      className="group flex items-start gap-3 rounded-xl p-4 text-left transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50"
+                      style={{background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)'}}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(139,92,246,0.1)'; e.currentTarget.style.borderColor = 'rgba(139,92,246,0.4)'; e.currentTarget.style.boxShadow = '0 0 20px rgba(139,92,246,0.1)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.boxShadow = 'none'; }}
                     >
-                      {prompt}
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl transition-all" style={{background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.25)'}}>
+                        {item.icon}
+                      </span>
+                      <div className="pt-0.5">
+                        <p className="text-sm font-bold text-white">{item.title}</p>
+                        <p className="mt-0.5 text-xs" style={{color: 'rgba(148,163,184,0.7)'}}>{item.description}</p>
+                      </div>
                     </button>
                   ))}
                 </div>
@@ -285,7 +334,7 @@ function App() {
             <div ref={messagesEndRef} />
           </section>
 
-          <section className="border-t border-slate-700 p-4 sm:p-5">
+          <section className="p-4 sm:p-5" style={{borderTop: '1px solid rgba(139,92,246,0.15)'}}>
             <div className="flex items-end gap-3">
               <textarea
                 value={input}
@@ -294,13 +343,19 @@ function App() {
                 placeholder="Type your request... (Shift+Enter for new line)"
                 rows={2}
                 disabled={loading}
-                className="min-h-[52px] flex-1 resize-none rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-400 outline-none transition focus:border-slate-400 disabled:cursor-not-allowed disabled:opacity-70"
+                className="min-h-[52px] flex-1 resize-none rounded-xl px-4 py-3 text-sm text-white outline-none transition disabled:cursor-not-allowed disabled:opacity-70"
+                style={{background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(139,92,246,0.2)', color: 'white'}}
+                onFocus={e => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.6)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(139,92,246,0.1)'; }}
+                onBlur={e => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.2)'; e.currentTarget.style.boxShadow = 'none'; }}
               />
               <button
                 type="button"
                 onClick={() => sendMessage()}
                 disabled={loading || !input.trim()}
-                className="h-[52px] rounded-lg bg-white px-4 text-sm font-semibold text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:bg-slate-400"
+                className="h-[52px] rounded-xl px-5 text-sm font-bold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-40"
+                style={{background: 'linear-gradient(135deg, #7c3aed, #2563eb)', color: 'white', boxShadow: '0 0 20px rgba(124,58,237,0.4)'}}
+                onMouseEnter={e => { if (!e.currentTarget.disabled) e.currentTarget.style.boxShadow = '0 0 30px rgba(124,58,237,0.7)'; }}
+                onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 0 20px rgba(124,58,237,0.4)'; }}
               >
                 Send
               </button>

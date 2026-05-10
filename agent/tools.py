@@ -85,7 +85,8 @@ def search_pois(
             return "POI search unavailable, please try again."
         pois = response.json()
         if not pois:
-            return "No POIs found within the specified radius."
+            label = brand if brand else category
+            return f"No '{label}' locations found within {radius_m}m of ({lat}, {lon}). The area may not have any matching venues in OpenStreetMap data. Try a larger radius or a different category."
         lines = [
             f"- {p['name']} ({p['type']}): {p['distance_m']}m away at ({p['lat']}, {p['lon']})"
             for p in pois

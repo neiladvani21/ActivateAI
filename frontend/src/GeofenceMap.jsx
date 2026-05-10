@@ -40,19 +40,33 @@ export default function GeofenceMap({ pois, geofenceRadiusM, mapCenter }) {
         )}
 
         {/* POI pins */}
-        {pois.map((poi, i) => (
-          <CircleMarker
-            key={i}
-            center={[poi.lat, poi.lon]}
-            radius={6}
-            pathOptions={{ color: '#0f172a', fillColor: '#f59e0b', fillOpacity: 1, weight: 2 }}
-          >
-            <Popup>
-              <strong>{poi.name}</strong><br />
-              {poi.type} · {Math.round(poi.distance_m)}m away
-            </Popup>
-          </CircleMarker>
-        ))}
+        {pois.map((poi, i) => {
+          const distanceLabel = poi.distance_m >= 1000
+            ? `${(poi.distance_m / 1000).toFixed(1)} km away`
+            : `${Math.round(poi.distance_m)} m away`;
+          const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${poi.lat},${poi.lon}&destination_place_id=${encodeURIComponent(poi.name)}`;
+          return (
+            <CircleMarker
+              key={i}
+              center={[poi.lat, poi.lon]}
+              radius={6}
+              pathOptions={{ color: '#0f172a', fillColor: '#f59e0b', fillOpacity: 1, weight: 2 }}
+            >
+              <Popup>
+                <strong style={{ fontSize: '13px' }}>{poi.name}</strong><br />
+                <span style={{ color: '#64748b', fontSize: '12px' }}>{poi.type} · {distanceLabel}</span><br />
+                <a
+                  href={mapsUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ fontSize: '12px', color: '#7c3aed', textDecoration: 'none', fontWeight: 600 }}
+                >
+                  Get directions →
+                </a>
+              </Popup>
+            </CircleMarker>
+          );
+        })}
       </MapContainer>
     </div>
   );

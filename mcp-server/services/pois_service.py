@@ -1,6 +1,7 @@
 import math
 import logging
 from typing import List, Optional
+from urllib.parse import urlencode
 
 import httpx
 from fastapi import HTTPException
@@ -16,21 +17,21 @@ OVERPASS_FALLBACK_URLS = [
 ]
 
 CATEGORY_TAGS = {
-    "gym":         ("amenity", "fitness_centre"),
-    "pharmacy":    ("amenity", "pharmacy"),
-    "grocery":     ("shop",    "supermarket"),
-    "coffee":      ("amenity", "cafe"),
-    "fast_food":   ("amenity", "fast_food"),
-    "restaurant":  ("amenity", "restaurant"),
-    "bar":         ("amenity", "bar"),
-    "hotel":       ("tourism", "hotel"),
-    "gas_station": ("amenity", "fuel"),
-    "clothing":    ("shop",    "clothes"),
-    "bank":        ("amenity", "bank"),
-    "parking":     ("amenity", "parking"),
-    "hospital":    ("amenity", "hospital"),
-    "school":      ("amenity", "school"),
-    "supermarket": ("shop",    "supermarket"),
+    "gym":         [("amenity", "fitness_centre"), ("leisure", "fitness_centre")],
+    "pharmacy":    [("amenity", "pharmacy")],
+    "grocery":     [("shop",    "supermarket")],
+    "coffee":      [("amenity", "cafe")],
+    "fast_food":   [("amenity", "fast_food")],
+    "restaurant":  [("amenity", "restaurant")],
+    "bar":         [("amenity", "bar")],
+    "hotel":       [("tourism", "hotel")],
+    "gas_station": [("amenity", "fuel")],
+    "clothing":    [("shop",    "clothes")],
+    "bank":        [("amenity", "bank")],
+    "parking":     [("amenity", "parking")],
+    "hospital":    [("amenity", "hospital")],
+    "school":      [("amenity", "school")],
+    "supermarket": [("shop",    "supermarket")],
 }
 
 VALID_CATEGORIES = set(CATEGORY_TAGS.keys())
@@ -53,19 +54,16 @@ def _build_overpass_query(
     category: Optional[str],
 ) -> str:
     if brand:
-        filter_clause = f'["name"="{brand}"]'
+        filters = [f'["name"="{brand}"]']
     else:
-        key, val = CATEGORY_TAGS[category]
-        filter_clause = f'["{key}"="{val}"]'
+        filters = [f'["{k}"="{v}"]' for k, v in CATEGORY_TAGS[category]]
 
-    return (
-        f"[out:json][timeout:25];\n"
-        f"(\n"
-        f'  node{filter_clause}(around:{radius_m},{lat},{lon});\n'
-        f'  way{filter_clause}(around:{radius_m},{lat},{lon});\n'
-        f");\n"
-        f"out center;"
-    )
+    lines = []
+    for f in filters:
+        lines.append(f'  node{f}(around:{radius_m},{lat},{lon});')
+        lines.append(f'  way{f}(around:{radius_m},{lat},{lon});')
+
+    return "[out:json][timeout:25];\n(\n" + "\n".join(lines) + "\n);\nout center;"
 
 
 async def get_pois(
@@ -91,7 +89,14 @@ async def get_pois(
     for overpass_url in overpass_urls:
         try:
             async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
-                response = await client.post(overpass_url, data={"data": query})
+                response = await client.post(
+                    overpass_url,
+                    content=urlencode({"data": query}).encode(),
+                    headers={
+                        "Content-Type": "application/x-www-form-urlencoded",
+                        "User-Agent": "ActivateAI/1.0 (marketing-activation-tool)",
+                    },
+                )
 
             if response.status_code == 200:
                 elements = response.json().get("elements", [])
