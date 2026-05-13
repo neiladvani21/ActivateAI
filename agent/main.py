@@ -40,6 +40,44 @@ app.add_middleware(
 
 _thread_pool = ThreadPoolExecutor(max_workers=4)
 
+# In-memory store of last extracted offer copy per session
+# { session_id: "Beat the morning rush at SoulCycle" }
+_session_offer_copy: Dict[str, str] = {}
+
+BANNER_KEYWORDS = [
+    "generate image", "create image", "make image",
+    "generate banner", "create banner", "make banner",
+    "show banner", "show image", "create a banner", "generate a banner",
+]
+
+def _is_banner_only_request(message: str) -> bool:
+    msg = message.lower().strip()
+    return any(kw in msg for kw in BANNER_KEYWORDS)
+
+def _extract_offer_copy(response_text: str) -> Optional[str]:
+    """Extract offer copy from agent response and return the raw string (no URL)."""
+    match = re.search(u'["""]([A-Z][^"""]{20,200})["""]', response_text)
+    if not match:
+        match = re.search(
+            r'(?:suggested offer copy|offer copy)\s*(?:could be)?\s*[:\*]+\s*[""]?(.{20,200}?)[""!]?(?:\n|$)',
+            response_text,
+            re.IGNORECASE,
+        )
+    if not match:
+        return None
+    offer_copy = match.group(1).strip().strip('"').strip("'")
+    if "[" in offer_copy or "Coffee Shop Name" in offer_copy:
+        return None
+    return offer_copy
+
+def _build_image_url_from_copy(offer_copy: str) -> str:
+    prompt = (
+        f"Professional retail marketing banner, bold typography, vibrant colors. "
+        f"Campaign message: {offer_copy}. "
+        f"Clean modern design, no people, suitable for digital advertising."
+    )
+    return f"https://image.pollinations.ai/prompt/{quote(prompt)}?width=800&height=400&nologo=true&seed=42"
+
 
 class ChatRequest(BaseModel):
     message: str
@@ -100,31 +138,10 @@ def _extract_map_data(intermediate_steps: list) -> tuple[list, Optional[int], Op
 
 
 def _build_image_url(response_text: str) -> Optional[str]:
-    # Match offer copy in straight or curly quotes, or after “offer copy:” label
-    match = re.search(u'[“””]([A-Z][^“””]{20,200})[“””]', response_text)
-
-    if not match:
-        match = re.search(
-            r'(?:suggested offer copy|offer copy)\s*(?:could be)?\s*[:\*]+\s*[““]?(.{20,200}?)[“”!]?(?:\n|$)',
-            response_text,
-            re.IGNORECASE,
-        )
-
-    if not match:
+    offer_copy = _extract_offer_copy(response_text)
+    if not offer_copy:
         return None
-
-    offer_copy = match.group(1).strip().strip('"').strip("'")
-
-    # Skip if it looks like a template placeholder
-    if "[" in offer_copy or "Coffee Shop Name" in offer_copy:
-        return None
-    prompt = (
-        f"Professional retail marketing banner, bold typography, vibrant colors. "
-        f"Campaign message: {offer_copy}. "
-        f"Clean modern design, no people, suitable for digital advertising."
-    )
-    encoded = quote(prompt)
-    return f"https://image.pollinations.ai/prompt/{encoded}?width=800&height=400&nologo=true&seed=42"
+    return _build_image_url_from_copy(offer_copy)
 
 
 def _run_agent(session_id: str, message: str, local_time: str) -> dict:
@@ -139,8 +156,21 @@ def health():
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
     session_id = request.session_id or str(uuid.uuid4())
-
     local_time = request.local_time or "unknown"
+
+    # Banner-only shortcut — skip agent entirely
+    if _is_banner_only_request(request.message) and session_id in _session_offer_copy:
+        offer_copy = _session_offer_copy[session_id]
+        image_url = f"http://localhost:8001/image-proxy?url={quote(_build_image_url_from_copy(offer_copy), safe='')}"
+        return ChatResponse(
+            response=f'Generating your campaign banner with the offer: "{offer_copy}"',
+            tools_used=[],
+            session_id=session_id,
+            pois=[],
+            geofence_radius_m=None,
+            map_center=None,
+            image_url=image_url,
+        )
 
     loop = asyncio.get_event_loop()
     try:
@@ -152,18 +182,20 @@ async def chat(request: ChatRequest):
         raise HTTPException(status_code=504, detail="Agent timed out. Please retry.")
 
     steps = result.get("intermediate_steps", [])
-
     tools_used = list(dict.fromkeys(
-        step[0].tool
-        for step in steps
-        if hasattr(step[0], "tool")
+        step[0].tool for step in steps if hasattr(step[0], "tool")
     ))
-
     pois, geofence_radius_m, map_center = _extract_map_data(steps)
 
-    image_keywords = ["generate image", "create image", "make image", "generate banner", "create banner", "make banner", "show banner", "show image", "create a banner", "generate a banner"]
-    wants_image = any(kw in request.message.lower() for kw in image_keywords)
+    # Save offer copy for future banner requests
+    offer_copy = _extract_offer_copy(result["output"])
+    if offer_copy:
+        _session_offer_copy[session_id] = offer_copy
+
+    wants_image = _is_banner_only_request(request.message)
     image_url = _build_image_url(result["output"]) if wants_image else None
+    if image_url:
+        image_url = f"http://localhost:8001/image-proxy?url={quote(image_url, safe='')}"
 
     return ChatResponse(
         response=result["output"],
@@ -181,10 +213,22 @@ async def chat_stream(request: ChatRequest):
     session_id = request.session_id or str(uuid.uuid4())
     local_time = request.local_time or "unknown"
 
-    image_keywords = ["generate image", "create image", "make image", "generate banner",
-                      "create banner", "make banner", "show banner", "show image",
-                      "create a banner", "generate a banner"]
-    wants_image = any(kw in request.message.lower() for kw in image_keywords)
+    # Banner-only shortcut — skip agent entirely
+    if _is_banner_only_request(request.message) and session_id in _session_offer_copy:
+        offer_copy = _session_offer_copy[session_id]
+        image_url = f"http://localhost:8001/image-proxy?url={quote(_build_image_url_from_copy(offer_copy), safe='')}"
+
+        async def banner_generator():
+            yield f"data: {json.dumps({'type': 'token', 'content': f'Generating your campaign banner with the offer: \"{offer_copy}\"'})}\n\n"
+            yield f"data: {json.dumps({'type': 'done', 'session_id': session_id, 'tools_used': [], 'pois': [], 'geofence_radius_m': None, 'map_center': None, 'image_url': image_url})}\n\n"
+
+        return StreamingResponse(
+            banner_generator(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+
+    wants_image = _is_banner_only_request(request.message)
 
     async def event_generator():
         try:
@@ -198,6 +242,10 @@ async def chat_stream(request: ChatRequest):
                         step[0].tool for step in chunk["intermediate_steps"]
                         if hasattr(step[0], "tool")
                     ))
+                    # Save offer copy for future banner requests
+                    offer_copy = _extract_offer_copy(chunk["output"])
+                    if offer_copy:
+                        _session_offer_copy[session_id] = offer_copy
                     image_url = _build_image_url(chunk["output"]) if wants_image else None
                     if image_url:
                         image_url = f"http://localhost:8001/image-proxy?url={quote(image_url, safe='')}"
@@ -230,7 +278,7 @@ async def chat_stream(request: ChatRequest):
 
 @app.get("/image-proxy")
 async def image_proxy(url: str):
-    async with httpx.AsyncClient(timeout=30) as client:
+    async with httpx.AsyncClient(timeout=90, follow_redirects=True) as client:
         resp = await client.get(url)
     if resp.status_code != 200:
         raise HTTPException(status_code=502, detail="Image fetch failed")

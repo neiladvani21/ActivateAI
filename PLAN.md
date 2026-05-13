@@ -23,12 +23,15 @@ The end state: a marketing team opens this tool, types their location and brand,
 - Single LangChain agent using Groq (llama-3.3-70b-versatile)
 - Tools: `get_weather`, `geocode_location`, `search_pois`, `suggest_geofence`
 - SQLite conversation memory per session
-- React-Leaflet map showing POIs + geofence circle
+- React-Leaflet map showing POIs + geofence circle with Google Maps directions links
 - Pollinations.ai image generation (free, triggered only on explicit user request)
 - Image proxy endpoint to avoid browser CORS issues
 - Time-based activation copy (browser sends local time)
 - MCP server (FastAPI) wrapping Overpass API for POI data with 3 mirror fallbacks
-- Frontend: React + Tailwind, chat UI with suggested prompts
+- TTL-based in-memory caching: geocode (24h), weather (10min), POIs (30min)
+- Streaming responses via FastAPI SSE + React streaming reader (word-by-word output)
+- In-memory offer copy store per session for instant banner follow-up (no agent re-run)
+- Frontend: React + Tailwind dark theme, ActivateAI branding, prompt cards, streaming cursor
 
 ### Known Limitations
 - Single agent does everything — banner follow-ups require re-running all tools
@@ -45,30 +48,40 @@ The end state: a marketing team opens this tool, types their location and brand,
 
 **Goal:** Make what we have production-stable before adding anything new.
 
-### 1.1 Fix Follow-up Banner Generation
+### 1.1 Fix Follow-up Banner Generation ✅ Done
 - **Problem:** When user says "now generate a banner", the agent re-runs all tools from scratch instead of reusing the previous offer copy
-- **Fix:** Save the last extracted offer copy per session in memory. On banner-only follow-up requests, skip the agent entirely and go straight to image generation with the saved copy
-- **Files:** `agent/main.py` — add `_session_offer_copy: Dict[str, str]` store
+- **Fix:** Save the last extracted offer copy per session in an in-memory dict. On banner-only follow-up requests, skip the agent entirely and return the image directly
+- **Implementation:**
+  - `_session_offer_copy: Dict[str, str]` module-level store in `agent/main.py`
+  - `_is_banner_only_request()` — detects "generate banner / create image / show banner" etc.
+  - `_extract_offer_copy()` — regex-extracts the offer copy string from agent response text
+  - `_build_image_url_from_copy()` — builds the Pollinations URL from any offer copy string
+  - Both `/chat` and `/chat/stream` short-circuit: if message is banner-only AND session has saved copy → skip agent, return image immediately
+  - After every normal agent response, offer copy is extracted and saved to `_session_offer_copy[session_id]`
+- **Note:** In-memory only — resets on server restart. Will integrate with persistent storage (Nano Banana / Phase 4) later
 
 ### 1.2 Switch to a More Reliable Free Model
 - **Problem:** Groq llama-3.3-70b has a 100k TPD limit — hits cap during normal testing
 - **Fix:** Use `llama-3.1-8b-instant` for tool calls (500k TPD), keep 70B only for final response synthesis
 - **Alternative:** Add Gemini Flash as a fallback when Groq is rate-limited
 
-### 1.3 Overpass Result Caching
+### 1.3 Overpass Result Caching ✅ Done
 - **Problem:** Same city query hits Overpass every time, causing rate limits and slow responses
 - **Fix:** In-memory cache with a 10-minute TTL keyed on `(lat, lon, radius, category/brand)`
 - **Files:** `mcp-server/services/pois_service.py`
+- **Status:** Implemented in `mcp-server/services/cache.py` with 30-min TTL for POIs. Cache hit ~0.012s vs ~1s uncached.
 
-### 1.4 Weather + Geocoding Caching
+### 1.4 Weather + Geocoding Caching ✅ Done
 - **Problem:** Same location geocoded on every message in a session
 - **Fix:** Cache geocoding results per session, weather results for 10 minutes
 - **Files:** `mcp-server/services/`
+- **Status:** Geocode cached 24h, weather cached 10min — both wired to `cache.py`.
 
-### 1.5 Streaming Responses
+### 1.5 Streaming Responses ✅ Done
 - **Problem:** User stares at spinner for 10-20 seconds
 - **Fix:** FastAPI `StreamingResponse` + React streaming reader so text appears word by word
 - **Files:** `agent/main.py`, `frontend/src/App.jsx`
+- **Status:** End-to-end streaming via `astream_events(version="v2")` in `agent/agent.py`. Frontend uses `fetch` + `ReadableStream`. Animated "ActivateAI is working" pill badge shown while streaming.
 
 **Effort:** 3-5 days  
 **Outcome:** Stable, fast, no random outages

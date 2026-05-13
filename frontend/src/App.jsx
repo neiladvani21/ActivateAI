@@ -314,23 +314,38 @@ function App() {
               </div>
             )}
 
-            {messages.map((message, index) => (
+            {messages.map((message, index) => {
+              const isStreaming = loading && message.role === 'agent' && index === messages.length - 1;
+              return (
               <div
                 key={`${message.role}-${index}`}
                 className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`max-w-[90%] rounded-xl px-4 py-3 sm:max-w-[80%] ${
-                    message.role === 'user'
-                      ? 'bg-slate-950 text-slate-100'
-                      : message.isError
-                        ? 'border border-red-300 bg-red-50 text-red-900'
-                        : 'bg-white text-slate-900'
-                  }`}
+                  className={`max-w-[90%] rounded-xl sm:max-w-[80%] ${!message.content && isStreaming ? '' : 'px-4 py-3'}`}
+                  style={
+                    !message.content && isStreaming
+                      ? {}
+                      : message.role === 'user'
+                        ? { background: 'linear-gradient(135deg, rgba(124,58,237,0.3), rgba(37,99,235,0.2))', border: '1px solid rgba(139,92,246,0.35)', color: 'white' }
+                        : message.isError
+                          ? { background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#fca5a5' }
+                          : { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#e2e8f0' }
+                  }
                 >
                   {message.role === 'agent' ? (
-                    <div className="prose prose-sm max-w-none prose-p:my-1 prose-strong:text-inherit prose-li:my-0.5">
+                    <div className="prose prose-sm prose-invert max-w-none prose-p:my-1 prose-strong:text-white prose-li:my-0.5 prose-headings:text-white prose-code:text-violet-300">
                       <ReactMarkdown>{message.content}</ReactMarkdown>
+                      {isStreaming && (
+                        <div className="mt-3 inline-flex items-center gap-2 rounded-full px-3 py-1.5" style={{background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.3)'}}>
+                          <span className="flex gap-[3px] items-center">
+                            {[0,1,2].map(i => (
+                              <span key={i} className="inline-block w-1 h-1 rounded-full" style={{background: '#a78bfa', animation: `bounce 1s ease-in-out ${i * 0.15}s infinite`}} />
+                            ))}
+                          </span>
+                          <span className="text-xs font-semibold tracking-wide" style={{color: '#a78bfa'}}>ActivateAI is working</span>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <p className="m-0 whitespace-pre-wrap text-sm sm:text-base">{message.content}</p>
@@ -367,9 +382,9 @@ function App() {
                   <ToolsUsed tools={message.toolsUsed} />
                 </div>
               </div>
-            ))}
+              );
+            })}
 
-            {loading && <ThinkingIndicator />}
 
             <div ref={messagesEndRef} />
           </section>
