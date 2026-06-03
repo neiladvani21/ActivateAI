@@ -42,6 +42,17 @@ The end state: a marketing team opens this tool, types their location and brand,
 - No copy variants — only one offer copy per response
 - Overpass API rate limits with no caching
 
+### Known Behaviour Issues (To Fix in Future Phases)
+
+**1. Too Many POIs Returned**
+The agent currently lists every venue it finds — sometimes 10-15 cafes or gyms in the response. This clutters the output and makes the plan feel unfocused. The fix is to cap results at the top 5 closest/most relevant POIs before the LLM sees them. The ranking should be: distance first, then OSM completeness (venues with names and addresses ranked above nameless nodes). This is a pre-processing step in `pois_service.py` — trim to top 5 before returning to the agent so the LLM never sees the full list and doesn't ramble.
+
+**2. Follow-up Requests Are Not Conversational**
+When the user asks "now give me a plan for the second cafe" the agent re-runs all tools from scratch, dumps the full POI list again, and generates a generic plan instead of focusing on just that one venue. The response should be short, specific, and aware that the user already has context from the previous turn. This requires two things: (a) the agent using conversation history to know which POIs were already found and not re-calling search tools, and (b) a smarter system prompt that instructs the agent to give a focused, single-venue follow-up response when the user references a specific place. Related to Phase 2 — the orchestrator routing "follow-up on specific POI" as a different intent than "new search".
+
+**3. Category Ambiguity — Gym vs Yoga vs Pilates**
+When a user says "find gyms" they likely mean traditional gyms (weights, cardio), but the search also returns yoga studios, pilates, and CrossFit which have very different audiences, offer types, and activation angles. A gym campaign ("crush your Monday workout") doesn't fit a yoga studio ("find your flow"). The fix has two parts: (a) at the search level — add subcategory filters so the user can specify "gym" vs "fitness studio" vs "yoga", and (b) at the copy level — the copywriter agent detects the actual venue type from the POI name/tags and tailors the copy accordingly rather than using a generic fitness template. For now, the agent should at minimum acknowledge the venue type in the offer copy rather than writing one-size-fits-all fitness copy.
+
 ---
 
 ## Phase 1 — Stabilize & Clean (Current Priority)
