@@ -1,8 +1,8 @@
 # ActivateAI — AI-Powered Marketing Activation Platform
 
-ActivateAI is an AI-powered platform that combines real-time weather, location intelligence, and LLM reasoning to generate complete moment-based retail marketing activations — offer copy, geofence strategy, campaign banners, and a live POI map — from a single natural language prompt.
+ActivateAI is an AI-powered marketing activation assistant that combines real-time weather, location intelligence, and LLM reasoning to help marketers plan moment-based retail campaigns — from a single natural language prompt.
 
-A real marketing team has a strategist, copywriter, designer, and media planner. This tool replicates all of them in one place.
+Type a brand and location, and get back nearby points of interest, a weather-aware offer copy suggestion, a recommended geofence radius, a live POI map, and an on-demand campaign banner — all without switching tools.
 
 ## Architecture Overview
 

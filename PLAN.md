@@ -235,8 +235,48 @@ Instead of markdown in a chat bubble, the API returns a structured object:
 - **`search_competitor_pois`** — find competitor locations near the target brand (e.g. Dunkin near Starbucks)
 - **`estimate_foot_traffic`** — use time + location to estimate how busy an area is
 - **`suggest_channels`** — recommend push/SMS/in-app based on time and audience
-- **`generate_copy_variants`** — produce 3 offer copy variants with different angles (urgency, discount, FOMO)
+- **`generate_copy_variants`** — produce 3 offer copy variants with different angles (see 3.2a below)
 - **`get_demographic_context`** — basic neighborhood demographics from census data (free API)
+
+### 3.2a Copy Variants — Three Distinct Angles
+
+Right now the agent outputs a single offer copy line. This is limiting — different channels need different copy, different brands have different tones, and the marketer knows their audience better than the AI. The fix is to always generate 3 variants and let the user pick.
+
+**The three variant types:**
+
+**① Catchy / Quirky**
+Short, punchy, unexpected. Stops the scroll. Works best for social, in-app banners, and audiences that respond to wit over information.
+- Tone: playful, confident, a little surprising
+- Length: under 8 words ideally
+- Example (gym, morning): *"Your legs called. SoulCycle answered."*
+- Example (coffee, rain): *"Rain outside. Espresso inside. Easy choice."*
+
+**② Story / Emotional**
+Paints a moment. Connects the offer to the audience's actual day — the commute, the slump, the weekend. Works best for SMS, email, and longer in-app messages where there's room to breathe.
+- Tone: warm, specific, human — references the real time, weather, or location context
+- Length: 1-2 sentences
+- Example (gym, morning): *"It's 7am, the city's just waking up, and SoulCycle has a spot 51m away with your name on it. Start the week right."*
+- Example (coffee, rain): *"Cold Tuesday morning, rain on the way — there's a Blue Bottle 200m from you and a warm seat waiting. Treat yourself."*
+
+**③ Direct / Push Notification**
+Clean, action-oriented, no fluff. Classic notification style — what's the offer, where is it, what to do. Works best for push notifications where space is tight and the user decides in 2 seconds.
+- Tone: clear, direct, no metaphors
+- Length: under 20 words, one clear CTA
+- Example (gym, morning): *"SoulCycle nearby — morning class starts in 30 min. Tap to reserve your spot."*
+- Example (coffee, rain): *"Blue Bottle Coffee 200m away. 15% off until 10am. Tap to claim."*
+
+**How it works end-to-end:**
+1. Copywriter agent (Phase 2) generates all 3 variants in structured JSON
+2. API returns `offer_variants: [{type: "catchy", copy: "..."}, {type: "story", copy: "..."}, {type: "direct", copy: "..."}]`
+3. Frontend shows 3 selectable cards — user clicks the one they want
+4. Selected variant is stored as the session's active offer copy
+5. "Generate banner" uses the selected variant — not just the last extracted string
+6. If user hasn't selected one, default to the direct/push variant for the banner
+
+**Why this matters:**
+- A gym campaign needs different copy than a coffee shop — quirky works for fitness, story works for food
+- Push notifications have character limits — direct copy is the only safe choice there
+- Giving 3 options takes 2 seconds for the marketer to choose and produces a much better result than one AI-chosen line
 
 ### 3.3 Frontend — Campaign Cards UI
 Replace raw markdown with structured visual cards:
