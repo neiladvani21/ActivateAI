@@ -514,3 +514,29 @@ Vercel runs serverless functions with a 10-second timeout on the free tier. Our 
 - When switching to paid image generation (Phase 4), keep Pollinations as a free fallback so the app still works without a Google API key.
 - LangGraph is the right choice over raw LangChain multi-agent because it gives explicit control over the agent graph — which agent runs when, what state is shared, how errors are handled.
 - The MCP server architecture we already have is good — in Phase 2 it becomes the tool server that all agents call, not just the single agent.
+
+---
+
+## Reference — Anthropic Multi-Agent Research System
+
+Source: https://www.anthropic.com/engineering/multi-agent-research-system  
+Read before starting Phase 2. Key takeaways and gaps vs our current plan:
+
+### What Matches Our Plan
+- Orchestrator + specialized worker agents pattern — we have this in Phase 2
+- Persona files (`.md`) separating agent intelligence from code — our approach actually matches production patterns described here
+- Tool-per-agent boundaries with focused responsibilities
+
+### Gaps to Address in Phase 2
+
+**1. Parallel agents by default, not optional**
+Anthropic runs 3-5 worker agents in parallel from day one — this is where 90% of their latency win comes from. Our plan currently treats Research + Strategy parallelism as a "maybe" deferred to Phase 6. When designing the LangGraph graph in Phase 2, parallel branches must be the default, not an optimization. Sequential agents defeat the purpose of multi-agent architecture.
+
+**2. Checkpointing and failure recovery**
+Anthropic saves research state to persistent memory so agents can resume from failures mid-run. We have no failure recovery planned. If the Research Agent completes but the Creative Agent fails, the user should not have to re-run everything. Add a checkpointing layer in Phase 2 — save intermediate agent outputs to SQLite so the graph can resume from the last successful step.
+
+**3. Tool selection heuristics belong in persona files**
+Anthropic emphasizes explicit heuristics inside each agent's instructions: "examine all available tools first, match tool usage to user intent, prefer specialized tools over general ones." Our `.md` persona files currently describe role and output format but don't define tool selection logic. Each persona should have a "When to use which tool" section — e.g. `researcher.md` should specify "always geocode first, then search POIs using those exact coordinates, only call competitor_pois if the user mentions a competitor brand."
+
+**4. Model routing belongs in Phase 2, not Phase 4**
+Anthropic uses lightweight classifiers to route intent before hitting heavyweight models. We currently plan model routing in Phase 4 as a cost optimization. It should be in the orchestrator from Phase 2 — the orchestrator itself should be a fast, cheap model (Groq 8B or Gemini Flash) that reads intent and delegates, not a heavyweight model that reasons through the full problem. Heavy models only run where reasoning is actually needed (strategy, copywriting).
